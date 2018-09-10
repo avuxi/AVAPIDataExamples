@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
+    <title>Demo Tile 10</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="http://maps.googleapis.com/maps/api/js?v=3&key="></script>
+    <style type="text/css">
+     text{
+         stroke: red;
+     }
+        #map_canvas{
+            position: fixed !important;
+            top: 10px!important;
+            bottom: 10px!important;
+            left: 10px!important;
+            right: 10px!important;
+        }
+        #map_info{
+            position: fixed;
+            bottom: 2px;
+            left: 10px;
+            background: gray;
+            padding: 5px;
+            right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+<div id="map_canvas" style=" position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;"></div>
+<div id="map_info">
+    <label>Lat/Lon</label>
+    <input id="oLat" style="width: 80px;" />
+    <input id="oLon" style="width: 80px;" />
+    <label>Tile X/Y</label>
+    <input id="oTile" style="width: 100px;" />
+</div>
+<script>
+
+    function LatLonPx() {
+        var _mmMaxZoom = 21;
+        var Uu;
+        var Vu;
+        var Ru;
+        var Tu;
+        function MapUtilsStart() {
+            if (Uu != null) return;
+            Uu = new Array();
+            Vu = new Array();
+            Ru = new Array();
+            Tu = new Array();
+            var c = 256;
+            for (i = 0; i <= _mmMaxZoom; i++) {
+                e = c / 2.0;
+
+                Uu[i] = c / 360.0;
+                Vu[i] = (c / (2.0 * Math.PI));
+                Ru[i] = (e);
+                Tu[i] = (c);
+
+                c *= 2;
+            }
+        }
+        MapUtilsStart();
+        this.FromLatLngToPixel = function (lat, lng, zoom) {
+            var ret = new Object();
+            if (zoom > _mmMaxZoom || zoom < 1)
+                return null;
+
+            d = Ru[zoom];
+
+            ret.Lng = parseInt(d + (lng * Uu[zoom]));
+
+            f = Math.sin(lat * (Math.PI / 180.0));
+            f = Math.max(f, -0.9999);
+            f = Math.min(f, 0.9999);
+            ret.Lat = parseInt(d + (0.5 * Math.log((1 + f) / (1 - f)) * (-Vu[zoom])));
+
+            return ret;
+        };
+        this.FromLatLngToTitle = function (lat, lng, zoom) {
+            var _ret = _LatLonPx.FromLatLngToPixel(lat, lng, zoom);
+            _ret.TileY = parseInt(_ret.Lat / 256);
+            _ret.TileX = parseInt(_ret.Lng / 256);
+            _ret.TileXSub = parseInt((_ret.Lng - (_ret.TileX * 256)) / 32);
+            _ret.TileYSub = parseInt((_ret.Lat - (_ret.TileY * 256)) / 32);
+            return _ret;
+        };
+        this.FromPixelToLatLng = function (lat, lng, zoom) {
+            var ret = new Object();
+            if (zoom > _mmMaxZoom || zoom < 1)
+                return ret;
+
+            e = Ru[zoom];
+            ret.Lng = parseFloat((lng - e) / Uu[zoom]);
+
+            g = (lat - e) / (-Vu[zoom]);
+            ret.Lat = parseFloat((2.0 * Math.atan(Math.exp(g)) - (Math.PI / 2.0)) / (Math.PI / 180.0));
+
+            return ret;
+        };
+
+    }
+
+    var _LatLonPx = new LatLonPx();
+
+    var map;
+    function MapStar() {
+
+        var lat = 41.3935, lon = 2.164;
+        var myLatlng = new google.maps.LatLng(lat, lon);
+        var myOptions = {
+            zoom: 9,
+            center: myLatlng,
+            disableDefaultUI: false,
+            scrollwheel: true,
+            draggable: true,
+            navigationControl: false,
+            scaleControl: true,
+            disableDoubleClickZoom: false
+        };
+
+        map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+        google.maps.event.addListener(map, 'click', function (evt) {
+            $('#oLat').val(evt.latLng.lat().toFixed(6));
+            $('#oLon').val(evt.latLng.lng().toFixed(6));
+            var ll = _LatLonPx.FromLatLngToTitle(evt.latLng.lat(), evt.latLng.lng(), 10);
+            $('#oTile').val(ll.TileX+'_'+ll.TileY);
+
+
+            PaintTile(evt.latLng.lat(), evt.latLng.lng());
+
+        });
+    }
+
+
+    var polygonTile;
+    function PaintTile(lat, lon) {
+        var zoomTile = 10;
+        var ll = _LatLonPx.FromLatLngToTitle(lat, lon, zoomTile);
+        var ll00 = _LatLonPx.FromPixelToLatLng(ll.TileY * 256, ll.TileX * 256, zoomTile);
+        var ll11 = _LatLonPx.FromPixelToLatLng(ll.TileY * 256 + 256, ll.TileX * 256 + 256, zoomTile);
+        var plcoor = [
+            new google.maps.LatLng(ll00.Lat, ll00.Lng),
+            new google.maps.LatLng(ll11.Lat, ll00.Lng),
+            new google.maps.LatLng(ll11.Lat, ll11.Lng),
+            new google.maps.LatLng(ll00.Lat, ll11.Lng),
+            new google.maps.LatLng(ll00.Lat, ll00.Lng)
+        ];
+        if (polygonTile != null) { polygonTile.setMap(null); }
+        polygonTile = new google.maps.Polyline({ path: plcoor, strokeColor: '#FF0000', strokeOpacity: 0.8, strokeWeight: 2, fillColor: 'transparent', fillOpacity: 0 });
+        polygonTile.setMap(map);
+
+
+    }
+
+
+    MapStar();
+</script>
+</body>
+
+</html>
